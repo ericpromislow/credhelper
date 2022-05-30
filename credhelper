@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+
+require 'json'
+require "sqlite3"
+
+class Database
+  def initialize(data_dir="db")
+    if !File.exists?(data_dir)
+      Dir.mkdir(data_dir)
+    end
+    db_path = File.join(data_dir, "creds.db")
+    if !File.exists?(db_path)
+
+      @db = SQLite3::Database.new(db_path)
+
+      @db.execute <<-SQL
+        create table creds (
+          url string primary key,
+          username string,
+          secret string
+      );
+      SQL
+    else
+      @db = SQLite3::Database.open(db_path)
+    end
+  end
+
+  def list
+    result = @db.execute("select url from creds")
+    return JSON.generate(result.flatten)
+  end
+
+  def get(url)
+    result = @db.execute("select * from creds where url=?", [url.strip])
+    if result.size == 0
+      puts "No credentials for #{url}"
+      exit 1
+    end
+    vals = result[0]
+    return JSON.generate(Hash[%w/Url Username Secret/.zip(vals)])
+  end
+
+  def store(data)
+    obj = JSON.parse(data)
+    erase(obj['Url'])
+    @db.execute("insert into creds values(?, ?, ?)", [obj.fetch('Url'), obj.fetch('Username'), obj.fetch('Secret')])
+  end
+
+  def erase(url)
+    @db.execute("delete from creds where url = ?", url)
+  end
+end
+
+db = Database.new
+
+cmd = ARGV.shift
+if cmd == "list"
+  puts db.list
+  exit 0
+end
+
+data = (ARGV[0] || STDIN.read()).strip
+
+case cmd
+when "get"
+  puts db.get(data)
+when "store"
+  puts db.store(data)
+when "erase"
+  db.erase(data)
+else
+  puts "Error: command ${cmd} not recognized"
+end
+  
