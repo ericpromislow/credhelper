@@ -51,12 +51,19 @@ class Database
   end
 end
 
-db = Database.new
+db = Database.new(File.join(ENV['HOME'], 'lab', 'credhelper', 'db'))
 
 cmd = ARGV.shift
 if cmd == "list"
   puts db.list
   exit 0
+end
+
+if !cmd
+  abort "Error: no command given"
+end
+if !%w/get store erase/.include?(cmd)
+  abort "Error: command #{cmd} not recognized"
 end
 
 data = (ARGV[0] || STDIN.read()).strip
@@ -69,6 +76,6 @@ when "store"
 when "erase"
   db.erase(data)
 else
-  puts "Error: command ${cmd} not recognized"
+  puts "Error: command #{cmd} not recognized"
 end
   
