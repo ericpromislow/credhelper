@@ -3,6 +3,8 @@
 require 'json'
 require "sqlite3"
 
+# $fd = open("/tmp/credhelper.out", 'a')
+
 class Database
   def initialize(data_dir="db")
     if !File.exists?(data_dir)
@@ -26,24 +28,31 @@ class Database
   end
 
   def list
-    result = @db.execute("select url from creds")
-    return JSON.generate(result.flatten)
+# $fd.puts(">> list")
+    result = @db.execute("select url, username from creds")
+# $fd.puts("list: #{ result }")
+# $fd.puts("list: #{ Hash[result] }")
+    return JSON.generate(Hash[result])
   end
 
   def get(url)
+# $fd.puts(">> get(#{url}")
     result = @db.execute("select * from creds where url=?", [url.strip])
+    # $fd.puts("... #{result}")
+
     if result.size == 0
-      puts "No credentials for #{url}"
+      puts "credentials not found in native keychain"
       exit 1
     end
     vals = result[0]
-    return JSON.generate(Hash[%w/Url Username Secret/.zip(vals)])
+    return JSON.generate(Hash[%w/ServerURL Username Secret/.zip(vals)])
   end
 
   def store(data)
+    # $fd.puts("store: #{ data }")
     obj = JSON.parse(data)
-    erase(obj['Url'])
-    @db.execute("insert into creds values(?, ?, ?)", [obj.fetch('Url'), obj.fetch('Username'), obj.fetch('Secret')])
+    erase(obj['ServerURL'])
+    @db.execute("insert into creds values(?, ?, ?)", [obj.fetch('ServerURL'), obj.fetch('Username'), obj.fetch('Secret')])
   end
 
   def erase(url)
@@ -56,6 +65,7 @@ db = Database.new(File.join(ENV['HOME'], 'lab', 'credhelper', 'db'))
 cmd = ARGV.shift
 if cmd == "list"
   puts db.list
+  # $fd.puts("... done")
   exit 0
 end
 
@@ -78,4 +88,5 @@ when "erase"
 else
   puts "Error: command #{cmd} not recognized"
 end
-  
+
+# $fd.close
